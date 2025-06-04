@@ -2,27 +2,26 @@ using System;
 
 namespace saveManager
 {
-    public enum LifePath { StreetKid, Nomad, Corpo }
+    public enum LifePath {StreetKid,Nomad,Corpo}
     public enum Gender {Male,Female}
 
     public class Save
     {
 
-        public string name { get; set; }
-        public string dir { get; set; }
-        public LifePath charPath
-        {
-            get;
-            set => field = (LifePath)Enum.Parse(typeof(LifePath), value);
+        public string saveName { get; set; }
+        public string saveDir { get; set; }
+        public LifePath charPath { get; set; }
+        public Gender charGender { get; set; }
+
+        public Save(string name, string dir, LifePath path, Gender gender) 
+        { 
+            saveName=name;
+            saveDir=dir;
+            charPath=path;
+            charGender=gender;
         }
 
-        public Gender charGender
-        {
-            get;
-            set => field = (Gender)Enum.Parse(typeof(Gender), value);
-        }
-
-        public Save() { }
+        public Save() {}
         
     }
 }
