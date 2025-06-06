@@ -23,7 +23,6 @@ namespace saveManager
             Console.WriteLine("Directory scan complete. Building save file list...");
 
             Save[] allSaves = new Save[savesDirList.Count];
-            List<string> tempTypeList = new List<string>();
 
             foreach (var (index, item) in savesDirList.Select((item, index) => (index, item))) //deserialize each save file's metadata and use it to build array of all Saves
             {
@@ -40,15 +39,38 @@ namespace saveManager
                                         (VoiceGender)Enum.Parse(typeof(VoiceGender), root.GetProperty("brainGender").GetString())
                                     );
 
-                tempTypeList.Add($"{allSaves[index].lifePath} ({allSaves[index].bodyGender} Body + {allSaves[index].voiceGender} Voice)"); //populate temp list of type strings to then build final list for UI
-
                 //Console.WriteLine(allSaves[index].saveName + " - " + allSaves[index].charType);
             }
 
-            List<string> saveTypeList = tempTypeList.Distinct().ToList();
-            //saveTypeList.ForEach(Console.WriteLine);
+            Save[] tempTypeArr = allSaves.Distinct(new SaveComparer()).ToArray();
 
         }
+
+    public class SaveComparer : IEqualityComparer<Save>
+    {
+        public bool Equals(Save s1, Save s2)
+        {
+            if(ReferenceEquals(s1, s2))
+            {
+                return true;
+            }
+            
+            else if(s1 == null || s2 == null)
+            {
+                return false;
+            }
+
+            return s1.lifePath == s2.lifePath
+            && s1.bodyGender == s2.bodyGender
+            && s1.voiceGender == s2.voiceGender;
+        }
+
+        public int GetHashCode(Save obj)
+        {
+            string s = $"{obj.lifePath} + {obj.bodyGender} + {obj.voiceGender}";
+            return s.GetHashCode();
+        }
+    }
 
 
     }

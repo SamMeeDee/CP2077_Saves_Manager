@@ -2,7 +2,7 @@ using System;
 
 namespace saveManager
 {
-    public enum LifePath {StreetKid,Nomad,Corpo}
+    public enum LifePath {StreetKid,Nomad,Corporate}
     public enum BodyGender {Male,Female}
     public enum VoiceGender {Male,Female}
 
