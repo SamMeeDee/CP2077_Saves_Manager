@@ -1,5 +1,4 @@
-﻿// See https://aka.ms/new-console-template for more information
-using System.Security.Cryptography.X509Certificates;
+﻿using System.Security.Cryptography.X509Certificates;
 using System.Xml.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -7,13 +6,12 @@ using System.IO;
 using System.Collections.Generic;
 using System.Threading;
 using System.ComponentModel.DataAnnotations;
-using Microsoft.VisualBasic;
 
 namespace saveManager
 {
     class Program
     {
-        static string savesDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Saved Games\\CD Projekt Red\\Cyberpunk 2077"; //CP2077 save file location in Windows 11
+        static string savesDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Saved Games\\CD Projekt Red\\Cyberpunk 2077"; //CP2077 save file location in Windows 11, need to check and see if it's different for Win10
 
         static void Main()
         {
@@ -75,7 +73,7 @@ namespace saveManager
 
             Save choice = playThruListArr[Convert.ToInt32(Console.ReadLine()) - 1];
 
-            var data = new JsonObject //JSON object containing relevant playthrough data, to be written to last_loaded_playthrough.json
+            var data = new JsonObject //JSON object containing relevant playthrough data to be written to last_loaded_playthrough.json
             {
                 ["lifePath"] = choice.lifePath.ToString(),
                 ["bodyGender"] = choice.bodyGender.ToString(),
@@ -133,8 +131,7 @@ namespace saveManager
 
             foreach (var (index, item) in dirList.Select((item, index) => (index, item))) //deserialize each save file's metadata and use to build array of all saves
             {
-                if (item==$"{savesDir}\\Inactive") { continue; }
-                string fileName = item + "\\metadata.9.json";
+                string fileName = item + "\\metadata.9.json"; //Let's hope 2.3 doesn't mess with this...
                 string jsonString = File.ReadAllText(fileName);
                 JsonDocument document = JsonDocument.Parse(jsonString);
                 JsonElement root = document.RootElement.GetProperty("Data").GetProperty("metadata");
@@ -156,7 +153,7 @@ namespace saveManager
             
             foreach (string save in saves)
             {
-                string dir = save.Split("\\").Last();
+                string dir = save.Split("\\").Last(); //grabbing the name of the individual directory, could maybe get from saveName, see note in class file.
 
                 try
                 {
@@ -171,7 +168,7 @@ namespace saveManager
                         }
                         else
                         {
-                            Directory.CreateDirectory($"{savesDir}\\Inactive");
+                            Directory.CreateDirectory($"{savesDir}\\Inactive"); //Note: I don't forsee a use case when the main save folder would not exist, but may be worth tweaking.
                             Directory.Move(save, $"{dest}\\{dir}");
                         }
                     }

@@ -9,11 +9,11 @@ namespace saveManager
     public class Save
     {
 
-        public string saveName { get; set; }
-        public string saveDir { get; set; }
+        public string saveName { get; set; } //TODO: refactor to have this field populated from saveDir, or maybe remofe altogether. Not currently used.
+        public string saveDir { get; set; } //TODO: maybe change to be saved as a Path instead of a string?
         public string playThruId { get; set; }
-        public LifePath lifePath { get; set; } //Nomad, StreetKid, or Corporate
-        public BodyGender bodyGender { get; set; } //Body type, either male or female 
+        public LifePath lifePath { get; set; } 
+        public BodyGender bodyGender { get; set; } //Body type, either male or female. Does not relate to genitalia (probably saved in .dat file)
         public VoiceGender voiceGender { get; set; } //Voice type, either male or female
 
         public Save(string name, string dir, string playthru, LifePath path, BodyGender bod, VoiceGender vox)
