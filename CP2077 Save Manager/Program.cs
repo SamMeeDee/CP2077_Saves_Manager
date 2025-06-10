@@ -6,6 +6,8 @@ using System.IO;
 using System.Collections.Generic;
 using System.Threading;
 using System.ComponentModel.DataAnnotations;
+using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace saveManager
 {
@@ -13,18 +15,64 @@ namespace saveManager
     {
         static string savesDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Saved Games\\CD Projekt Red\\Cyberpunk 2077"; //CP2077 save file location in Windows 11, need to check and see if it's different for Win10
 
+        [STAThread]
         static void Main()
         {
             List<string> savesDirList;
 
             Console.WriteLine("Welcome to the CP2077 Save Manager!!!\n");
+
+            string launcherPath = String.Empty;
+            bool validPath = false;
+
+            //check if there is a saved launcher path, and if the path contains the launcher.
+            if (File.Exists($"{savesDir}\\launcher_path.txt"))
+            {
+                if (File.Exists(File.ReadAllText($"{savesDir}\\launcher_path.txt") + "\\REDprelauncher.exe"))
+                {
+                    launcherPath = File.ReadAllText($"{savesDir}\\launcher_path.txt");
+                    validPath = true;
+                }
+            }
+
+            //If no valid launcher path is detected, prompt user for CP2077 installation directory, check to mke sure launcher exists
+            while (!validPath)
+            {
+                FolderBrowserDialog dirBrowser = new FolderBrowserDialog();
+                dirBrowser.Description = "Select the install folder for Cyberpunk 2077";
+                dirBrowser.RootFolder = Environment.SpecialFolder.ProgramFiles;
+                dirBrowser.OkRequiresInteraction = true;
+
+                DialogResult result = dirBrowser.ShowDialog(); 
+
+                if (result == DialogResult.OK)
+                {
+                    if (File.Exists($"{dirBrowser.SelectedPath}\\REDprelauncher.exe"))
+                    {
+                        launcherPath = dirBrowser.SelectedPath;
+                        validPath = true;
+                        File.Delete($"{savesDir}\\launcher_path.txt");
+                        File.WriteAllText($"{savesDir}\\launcher_path.txt", launcherPath);
+                    }
+                    else { Console.WriteLine($"Launcher not found in {dirBrowser.SelectedPath}, please choose a different folder.\n"); }
+                }
+                else { Console.WriteLine("No folder selected, please try again.\n"); }
+            }
+
+            File.WriteAllText($"{savesDir}\\launcher_path.txt", launcherPath);
+
+            Process launcher = new Process() { StartInfo = new ProcessStartInfo { FileName = $"{launcherPath}\\REDprelauncher.exe" } };
+
+            launcher.Exited += (sender, e) => {System.Console.WriteLine("Process has exited.");};
+
             Console.Write("Scanning save file directory...");
 
-            if (Directory.Exists($"{savesDir}\\Inactive")) //Inactive folder should only exist if tool has already been used once. 
+            //Check to see if there is a playthrough already loaded, and ask user how to proceed
+            if (Directory.Exists($"{savesDir}\\Inactive"))
             {
                 Console.Write("Existing inactive saves folder detected, determining current active playthrough...");
 
-                if (File.Exists($"{savesDir}\\last_loaded_playthrough.json")) //same as Inactive folder
+                if (File.Exists($"{savesDir}\\last_loaded_playthrough.json")) 
                 {
                     //deserialize last_loaded_playthrough.txt 
                     string fileString = File.ReadAllText($"{savesDir}\\last_loaded_playthrough.json");
@@ -41,15 +89,19 @@ namespace saveManager
                     switch (Convert.ToInt32(Console.ReadLine()))
                     {
                         case 1:
-                            //Start game as is
-                            break;
+                            Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
+                            launcher.Start();
+                            launcher.WaitForExit(30000);
+                            return;
                         case 2:
                             moveSaves(new List<string>(Directory.EnumerateDirectories($"{savesDir}\\Inactive")), savesDir);
                             Directory.Delete($"{savesDir}\\Inactive");
                             break;
                         default:
-                            //start game as is
-                            break;
+                            Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
+                            launcher.Start();
+                            launcher.WaitForExit(30000);
+                            return;
                     }
                 }
             }
@@ -101,7 +153,8 @@ namespace saveManager
 
             Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
 
-            //TODO: launch CP2077 launcher
+            launcher.Start();
+            launcher.WaitForExit(30000);
         }
 
         public class SaveComparer : IEqualityComparer<Save>
