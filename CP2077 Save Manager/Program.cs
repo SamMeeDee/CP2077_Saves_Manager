@@ -2,8 +2,12 @@
 using System.Security.Cryptography.X509Certificates;
 using System.Xml.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.IO;
 using System.Collections.Generic;
+using System.Threading;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.VisualBasic;
 
 namespace saveManager
 {
@@ -15,64 +19,216 @@ namespace saveManager
         {
             List<string> savesDirList;
 
-            Console.WriteLine("Welcome to the CP2077 Save Manager!!!");
-            Console.WriteLine("Scanning your save file directory...");
+            Console.WriteLine("Welcome to the CP2077 Save Manager!!!\n");
+            Console.Write("Scanning save file directory...");
 
-            savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir)); //put the paths to all save directories in a list
-
-            Console.WriteLine("Directory scan complete. Building save file list...");
-
-            Save[] allSaves = new Save[savesDirList.Count];
-
-            foreach (var (index, item) in savesDirList.Select((item, index) => (index, item))) //deserialize each save file's metadata and use it to build array of all Saves
+            if (Directory.Exists($"{savesDir}\\Inactive")) //Inactive folder should only exist if tool has already been used once. 
             {
+                Console.Write("Existing inactive saves folder detected, determining current active playthrough...");
+
+                if (File.Exists($"{savesDir}\\last_loaded_playthrough.json")) //same as Inactive folder
+                {
+                    //deserialize last_loaded_playthrough.txt 
+                    string fileString = File.ReadAllText($"{savesDir}\\last_loaded_playthrough.json");
+                    JsonNode node = JsonNode.Parse(fileString);
+
+                    Console.WriteLine("Complete!!\n");
+
+                    //display last loaded playthrough and prompt user to proceed as is or switch playthrough
+                    Console.WriteLine("The last playthrough loaded was:\n" + node["lifePath"].GetValue<string>()
+                    + " (" + node["bodyGender"].GetValue<string>() + " Body + " + node["voiceGender"].GetValue<string>() + " Voice), "
+                    + node["playThruId"].GetValue<string>() + "\n");
+
+                    Console.WriteLine("Do you want to:\n1. Start game with this playthrough.\n2. Choose a different playthrough to load.");
+                    switch (Convert.ToInt32(Console.ReadLine()))
+                    {
+                        case 1:
+                            //Start game as is
+                            break;
+                        case 2:
+                            moveSaves(new List<string>(Directory.EnumerateDirectories($"{savesDir}\\Inactive")), savesDir);
+                            Directory.Delete($"{savesDir}\\Inactive");
+                            break;
+                        default:
+                            //start game as is
+                            break;
+                    }
+                }
+            }
+
+            savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir)); //build list of paths to all individual save directories
+            Thread.Sleep(2000);
+
+            Console.Write(" Complete!!\nBuilding save file list...");
+
+            Save[] allSaves = scanSaves(savesDirList);
+
+            Save[] playThruListArr = allSaves.Distinct(new SaveComparer()).ToArray(); //used to populate playthrough selection list
+            Thread.Sleep(2000);
+
+            //display list of available playthroughs
+            Console.WriteLine(" Complete!!\n\nPlease select a playthrough to load:\n");
+            foreach (var (index, item) in playThruListArr.Select((item, index) => (index, item)))
+            {
+                Console.WriteLine($"{index + 1}. {item.ToString()}, {Array.FindAll(allSaves, x => new SaveComparer().Equals(x, item)).Length} Saves");
+            }
+
+            Save choice = playThruListArr[Convert.ToInt32(Console.ReadLine()) - 1];
+
+            var data = new JsonObject //JSON object containing relevant playthrough data, to be written to last_loaded_playthrough.json
+            {
+                ["lifePath"] = choice.lifePath.ToString(),
+                ["bodyGender"] = choice.bodyGender.ToString(),
+                ["voiceGender"] = choice.voiceGender.ToString(),
+                ["playThruId"] = choice.playThruId
+            };
+
+            Console.Write($"Loading {choice.ToString()} saves... ");
+
+            Save[] allOtherSaves = Array.FindAll(allSaves, x => !(new SaveComparer().Equals(x, choice))); //list of all saves to be removed from main save directory
+
+            moveSaves(allOtherSaves, $"{savesDir}\\Inactive");
+
+            if (File.Exists($"{savesDir}\\last_loaded_playthrough.json")) //if file exists, delete it and remake it with new values
+            {
+                File.Delete($"{savesDir}\\last_loaded_playthrough.json");
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                using (StreamWriter sw = File.CreateText($"{savesDir}\\last_loaded_playthrough.json")) { sw.WriteLine(data.ToJsonString(options)); }
+            }
+            else //make file with values
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                using (StreamWriter sw = File.CreateText($"{savesDir}\\last_loaded_playthrough.json")) { sw.WriteLine(data.ToJsonString(options)); }
+            }
+
+            Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
+
+            //TODO: launch CP2077 launcher
+        }
+
+        public class SaveComparer : IEqualityComparer<Save>
+        {
+            public bool Equals(Save s1, Save s2)
+            {
+                if (ReferenceEquals(s1, s2)) { return true; }
+
+                else if (s1 == null || s2 == null) { return false; }
+
+                return s1.playThruId == s2.playThruId
+                && s1.lifePath == s2.lifePath
+                && s1.bodyGender == s2.bodyGender
+                && s1.voiceGender == s2.voiceGender;
+            }
+
+            public int GetHashCode(Save obj)
+            {
+                string s = $"{obj.playThruId} + {obj.lifePath} + {obj.bodyGender} + {obj.voiceGender}";
+                return s.GetHashCode();
+            }
+        }
+
+        public static Save[] scanSaves(List<string> dirList)
+        {
+            Save[] savesArr = new Save[dirList.Count];
+
+            foreach (var (index, item) in dirList.Select((item, index) => (index, item))) //deserialize each save file's metadata and use to build array of all saves
+            {
+                if (item==$"{savesDir}\\Inactive") { continue; }
                 string fileName = item + "\\metadata.9.json";
                 string jsonString = File.ReadAllText(fileName);
                 JsonDocument document = JsonDocument.Parse(jsonString);
                 JsonElement root = document.RootElement.GetProperty("Data").GetProperty("metadata");
 
-                allSaves[index] = new Save(
+                savesArr[index] = new Save(
                                         root.GetProperty("name").GetString(),
                                         item,
+                                        root.GetProperty("playthroughID").GetString(),
                                         (LifePath)Enum.Parse(typeof(LifePath), root.GetProperty("lifePath").GetString()),
                                         (BodyGender)Enum.Parse(typeof(BodyGender), root.GetProperty("bodyGender").GetString()),
                                         (VoiceGender)Enum.Parse(typeof(VoiceGender), root.GetProperty("brainGender").GetString())
                                     );
-
-                //Console.WriteLine(allSaves[index].saveName + " - " + allSaves[index].charType);
             }
 
-            Save[] tempTypeArr = allSaves.Distinct(new SaveComparer()).ToArray();
-
+            return savesArr;
         }
 
-    public class SaveComparer : IEqualityComparer<Save>
-    {
-        public bool Equals(Save s1, Save s2)
-        {
-            if(ReferenceEquals(s1, s2))
-            {
-                return true;
-            }
+        public static void moveSaves(List<string> saves, string dest) {
             
-            else if(s1 == null || s2 == null)
+            foreach (string save in saves)
             {
-                return false;
+                string dir = save.Split("\\").Last();
+
+                try
+                {
+                    // Ensure the source directory exists
+                    if (Directory.Exists(save) == true)
+                    {
+                        // Ensure the destination directory exists
+                        if (Directory.Exists(dest) == true)
+                        {
+                            // Perform the move
+                            Directory.Move(save, $"{dest}\\{dir}");
+                        }
+                        else
+                        {
+                            Directory.CreateDirectory($"{savesDir}\\Inactive");
+                            Directory.Move(save, $"{dest}\\{dir}");
+                        }
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+
+                catch (Exception exc)
+                {
+                    Console.WriteLine(exc.ToString());
+                    return;
+                }
             }
 
-            return s1.lifePath == s2.lifePath
-            && s1.bodyGender == s2.bodyGender
-            && s1.voiceGender == s2.voiceGender;
+            Console.WriteLine("Saves moved successfully!!");
         }
 
-        public int GetHashCode(Save obj)
-        {
-            string s = $"{obj.lifePath} + {obj.bodyGender} + {obj.voiceGender}";
-            return s.GetHashCode();
+        public static void moveSaves(Save[] saves, string dest) {
+            foreach (Save save in saves)
+            {
+                string dir = save.saveDir.Split("\\").Last();
+
+                try
+                {
+                    // Ensure the source directory exists
+                    if (Directory.Exists(save.saveDir) == true)
+                    {
+                        // Ensure the destination directory exists
+                        if (Directory.Exists(dest) == true)
+                        {
+                            // Perform the move
+                            Directory.Move(save.saveDir, $"{dest}\\{dir}");
+                        }
+                        else
+                        {
+                            Directory.CreateDirectory($"{savesDir}\\Inactive");
+                            Directory.Move(save.saveDir, $"{dest}\\{dir}");
+                        }
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+
+                catch (Exception exc)
+                {
+                    Console.WriteLine(exc.ToString());
+                    return;
+                }
+            }
+
+            Console.WriteLine("Saves moved successfully!!");
         }
-    }
-
-
+    
     }
 
 }

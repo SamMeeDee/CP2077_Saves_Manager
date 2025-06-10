@@ -11,20 +11,27 @@ namespace saveManager
 
         public string saveName { get; set; }
         public string saveDir { get; set; }
+        public string playThruId { get; set; }
         public LifePath lifePath { get; set; } //Nomad, StreetKid, or Corporate
         public BodyGender bodyGender { get; set; } //Body type, either male or female 
-        public VoiceGender voiceGender { get; set; }
+        public VoiceGender voiceGender { get; set; } //Voice type, either male or female
 
-        public Save(string name, string dir, LifePath path, BodyGender bod, VoiceGender vox)
+        public Save(string name, string dir, string playthru, LifePath path, BodyGender bod, VoiceGender vox)
         {
             saveName = name;
             saveDir = dir;
+            playThruId = playthru;
             lifePath = path;
             bodyGender = bod;
             voiceGender = vox;
         }
 
-        public Save() { }
+        public override string ToString() 
+        {
+            string output = $"{this.lifePath.ToString()} ({this.bodyGender.ToString()} Body + {this.voiceGender.ToString()} Voice), {this.playThruId}";
+            return output;
+        }
 
+        public Save() { }
     }
 }
