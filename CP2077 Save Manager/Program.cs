@@ -83,12 +83,12 @@ namespace saveManager
 
             launcher.Exited += (sender, e) => {System.Console.WriteLine("Process has exited.");};
 
-            Console.WriteLine ("Scanning save file directory...");
+            Console.Write("Scanning save file directory for previously loaded playthrough...");
 
             //Check to see if there is a playthrough already loaded, and ask user how to proceed
             if (Directory.Exists($"{savesDir}\\Inactive"))
             {
-                Console.Write("Existing inactive saves folder detected, determining current active playthrough...");
+                Console.Write(" Complete!!\n\nDetermining current active playthrough...");
 
                 if (File.Exists($"{savesDir}\\last_loaded_playthrough.json")) 
                 {
@@ -124,10 +124,12 @@ namespace saveManager
                 }
             }
 
+            Console.Write("Scanning save file directory...");
+
             savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir)); //build list of paths to all individual save directories
             Thread.Sleep(2000);
 
-            Console.Write(" Complete!!\nBuilding save file list...");
+            Console.Write(" Complete!!\n\nBuilding save file list...");
 
             Save[] allSaves = scanSaves(savesDirList);
 
@@ -256,7 +258,7 @@ namespace saveManager
                 }
             }
 
-            Console.WriteLine("Saves moved successfully!!");
+            Console.WriteLine("Saves moved successfully!!\n");
         }
 
         public static void moveSaves(Save[] saves, string dest) {
@@ -294,7 +296,7 @@ namespace saveManager
                 }
             }
 
-            Console.WriteLine("Saves moved successfully!!");
+            Console.WriteLine("Saves moved successfully!!\n");
         }
     
     }
