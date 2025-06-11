@@ -1,6 +1,6 @@
 # **Cyberpunk 2077 Save Manager**
 
-A simple C#/.NET program to manage your Cyberpunk 2077 saves across different characters/playthroughs.
+A simple Windows C#/.NET program to manage your Cyberpunk 2077 saves across different characters/playthroughs.
 
 # Purpose
 
@@ -18,14 +18,17 @@ When you next run the program, it will auto-detect your previously chosen playth
 
 # How it Works
 
-The program reads the metadata.9.json file in each save folder and sorts based on the unique combination of LifePath + Body Gender + Voice Gender + Playthrough ID. Playthrough ID is an alpha-numeric string that is unique to a given character/playthrough across all its' saves. I would assume it is a hash generated at the time of the first save after starting a playthrough. It is unfortunately meaningless in determining any details about the character on its own, but I included it to handle the case of multiple playthroughs with identical combos of LifePath + Body Gender + Voice Gender (there are only 12 possible combinations after all). I may go back and just have it do the comparison based on Playthrough ID only, since assuming you don't tamper with the metadata.9.json file, it should suffice for sorting saves into different playthroughs. In general, however, this should still work with modified save files, as long as you are not altering Lifepath, Body Gender, or Voice Gender. If you do modify any of those attributes, subsequent saves will be categorized as a seperate playthrough from the saves from before the modification. 
+The program reads the metadata.9.json file in each save folder and sorts based on the unique combination of LifePath + Body Gender + Voice Gender + Playthrough ID. Playthrough ID is an alpha-numeric string that is unique to a given character/playthrough across all its' saves. I would assume it is a hash generated at the time of the first save after starting a playthrough. It is unfortunately meaningless in determining any details about the character on its own, but I included it to handle the case of multiple playthroughs with identical combos of LifePath + Body Gender + Voice Gender (there are only 12 possible combinations after all). I may go back and just have it do the comparison based on Playthrough ID only, since assuming you don't tamper with the metadata.9.json file, it should suffice for sorting saves into different playthroughs. However, in general this should still work with modified save files, as long as you are not altering Lifepath, Body Gender, or Voice Gender. If you do modify any of those attributes, subsequent saves will be categorized as a seperate playthrough from the saves from before the modification. 
 
 # How to Use
-Download the .exe and drop it wherever you like. My plan is to put a shortcut on my desktop that I just label "Cyberpunk 2077", and use that shortcut to launch the game. Since it is just a single executable, you can also use it in custom actions in programs like Vortex. 
 
-Also, I have not done any testing with how this affects cloud sync-ed saves and such. I would assume if you have it turned on and make a new save, it will still sync that save as usual. If youi want to be on the safe side, disable cloud saves before initial use. 
+Download the .exe and drop it wherever you like. My plan is to put a shortcut on my desktop that I just label "Cyberpunk 2077", and use that shortcut to launch the game. 
 
-While this program doesn't modify the saves themselves, just moves them around, I would still reccommend backing up your saves before initial use. 
+Requires [.NET 9.0 Runtime](https://builds.dotnet.microsoft.com/dotnet/Runtime/9.0.6/dotnet-runtime-9.0.6-win-x64.exe)
+
+I have not done any testing with how this affects cloud synced saves. I would assume if you have it turned on and make a new save, it will still sync that save as usual. If you want to be on the safe side, disable cloud saves before use. 
+
+While this program just moves them around, I would still reccommend backing up your saves before initial use. 
 
 # To Dos
 1. Add process tracking to determine when the game has been closed, and rescan for any new saves that don't match the "loaded" character, and take some actions.
