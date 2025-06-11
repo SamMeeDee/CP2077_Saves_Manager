@@ -83,7 +83,7 @@ namespace saveManager
 
             launcher.Exited += (sender, e) => {System.Console.WriteLine("Process has exited.");};
 
-            Console.Write("Scanning save file directory...");
+            Console.WriteLine ("Scanning save file directory...");
 
             //Check to see if there is a playthrough already loaded, and ask user how to proceed
             if (Directory.Exists($"{savesDir}\\Inactive"))
@@ -107,7 +107,7 @@ namespace saveManager
                     switch (Convert.ToInt32(Console.ReadLine()))
                     {
                         case 1:
-                            Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
+                            Console.WriteLine("Complete!!\nLaunching Cyberpunk 2077...");
                             launcher.Start();
                             launcher.WaitForExit(30000);
                             return;
@@ -116,7 +116,7 @@ namespace saveManager
                             Directory.Delete($"{savesDir}\\Inactive");
                             break;
                         default:
-                            Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
+                            Console.WriteLine("Complete!!\nLaunching Cyberpunk 2077...");
                             launcher.Start();
                             launcher.WaitForExit(30000);
                             return;
