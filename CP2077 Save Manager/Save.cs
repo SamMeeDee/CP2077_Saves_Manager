@@ -17,6 +17,7 @@ limitations under the License.
 */
 
 using System;
+using System.Text.Json.Serialization;
 
 namespace saveManager
 {
@@ -26,8 +27,9 @@ namespace saveManager
 
     public class Save
     {
-
+        [JsonIgnore]
         public string saveName { get; set; } //TODO: refactor to have this field populated from saveDir, or maybe remofe altogether. Not currently used.
+        [JsonIgnore]
         public string saveDir { get; set; } //TODO: maybe change to be saved as a Path instead of a string?
         public string playThruId { get; set; }
         public LifePath lifePath { get; set; } 

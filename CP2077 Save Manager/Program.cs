@@ -88,20 +88,21 @@ namespace saveManager
             //Check to see if there is a playthrough already loaded, and ask user how to proceed
             if (Directory.Exists($"{savesDir}\\Inactive"))
             {
-                Console.Write(" Complete!!\n\nDetermining current active playthrough...");
+                Console.WriteLine(" Complete!!\n\nDetermining current active playthrough...");
 
-                if (File.Exists($"{savesDir}\\last_loaded_playthrough.json")) 
+                if (File.Exists($"{savesDir}\\last_loaded_playthrough.json") && File.ReadAllText($"{savesDir}\\last_loaded_playthrough.json").Length>0) 
                 {
                     //deserialize last_loaded_playthrough.txt 
                     string fileString = File.ReadAllText($"{savesDir}\\last_loaded_playthrough.json");
-                    JsonNode node = JsonNode.Parse(fileString);
+                    JsonArray array = JsonNode.Parse(fileString).AsArray();
 
-                    Console.WriteLine("Complete!!\n");
+                    Console.WriteLine(array[0]["lifePath"]);
 
-                    //display last loaded playthrough and prompt user to proceed as is or switch playthrough
-                    Console.WriteLine("The last playthrough loaded was:\n" + node["lifePath"].GetValue<string>()
-                    + " (" + node["bodyGender"].GetValue<string>() + " Body + " + node["voiceGender"].GetValue<string>() + " Voice), "
-                    + node["playThruId"].GetValue<string>() + "\n");
+                    //display last loaded playthroughs and prompt user to proceed as is or switch playthrough
+                    Console.WriteLine("Currentlty loaded playthroughs:\n");
+                    for(int i = 0; i < array.Count; i++) {
+                        Console.WriteLine($"{(LifePath)array[i]["lifePath"]} ({array[i]["bodyGender"]} Body + {array[i]["voiceGender"]} Voice), {array[i]["playThruId"]}");
+                    }
 
                     Console.WriteLine("Do you want to:\n1. Start game with this playthrough.\n2. Choose a different playthrough to load.");
                     switch (Convert.ToInt32(Console.ReadLine()))
@@ -137,38 +138,39 @@ namespace saveManager
             Thread.Sleep(2000);
 
             //display list of available playthroughs
-            Console.WriteLine(" Complete!!\n\nPlease select a playthrough to load:\n");
+            Console.WriteLine(" Complete!!\n\nPlease select a playthrough/s to load (seperate multiple choices with):\n");
             foreach (var (index, item) in playThruListArr.Select((item, index) => (index, item)))
             {
                 Console.WriteLine($"{index + 1}. {item.ToString()}, {Array.FindAll(allSaves, x => new SaveComparer().Equals(x, item)).Length} Saves");
             }
 
-            Save choice = playThruListArr[Convert.ToInt32(Console.ReadLine()) - 1];
+            string[] userEntry = Console.ReadLine().Split(",");
 
-            var data = new JsonObject //JSON object containing relevant playthrough data to be written to last_loaded_playthrough.json
-            {
-                ["lifePath"] = choice.lifePath.ToString(),
-                ["bodyGender"] = choice.bodyGender.ToString(),
-                ["voiceGender"] = choice.voiceGender.ToString(),
-                ["playThruId"] = choice.playThruId
-            };
+            Save[] selection = new Save[userEntry.Length];
 
-            Console.Write($"Loading {choice.ToString()} saves... ");
+            foreach (var (index, item) in userEntry.Select((item, index) => (index, item))){ selection[index] = playThruListArr[Int32.Parse(item) - 1]; }
 
-            Save[] allOtherSaves = Array.FindAll(allSaves, x => !(new SaveComparer().Equals(x, choice))); //list of all saves to be removed from main save directory
+            //Save choice = playThruListArr[Convert.ToInt32(Console.ReadLine()) - 1];
 
-            moveSaves(allOtherSaves, $"{savesDir}\\Inactive");
+            var opts = new JsonSerializerOptions { WriteIndented = true };
+            string selectionStr = JsonSerializer.Serialize(selection,opts); //JSON object containing relevant playthrough data to be written to last_loaded_playthrough.json
+
+            Console.Write(selectionStr);
+
+            //Save[] allOtherSaves = Array.FindAll(allSaves, x => !(new SaveComparer().Equals(x, choice))); //list of all saves to be removed from main save directory
+
+            //moveSaves(allOtherSaves, $"{savesDir}\\Inactive");
 
             if (File.Exists($"{savesDir}\\last_loaded_playthrough.json")) //if file exists, delete it and remake it with new values
             {
                 File.Delete($"{savesDir}\\last_loaded_playthrough.json");
-                var options = new JsonSerializerOptions { WriteIndented = true };
-                using (StreamWriter sw = File.CreateText($"{savesDir}\\last_loaded_playthrough.json")) { sw.WriteLine(data.ToJsonString(options)); }
+                //var options = new JsonSerializerOptions { WriteIndented = true };
+                using (StreamWriter sw = File.CreateText($"{savesDir}\\last_loaded_playthrough.json")) { sw.WriteLine(selectionStr); }
             }
             else //make file with values
             {
-                var options = new JsonSerializerOptions { WriteIndented = true };
-                using (StreamWriter sw = File.CreateText($"{savesDir}\\last_loaded_playthrough.json")) { sw.WriteLine(data.ToJsonString(options)); }
+                //var options = new JsonSerializerOptions { WriteIndented = true };
+                using (StreamWriter sw = File.CreateText($"{savesDir}\\last_loaded_playthrough.json")) { sw.WriteLine(selectionStr); }
             }
 
             Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
