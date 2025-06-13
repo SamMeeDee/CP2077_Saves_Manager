@@ -83,12 +83,12 @@ namespace saveManager
 
             launcher.Exited += (sender, e) => {System.Console.WriteLine("Process has exited.");};
 
-            Console.Write("Scanning save file directory for previously loaded playthrough...");
+            Console.Write("Scanning save file directory...");
 
             //Check to see if there is a playthrough already loaded, and ask user how to proceed
             if (Directory.Exists($"{savesDir}\\Inactive"))
             {
-                Console.WriteLine(" Complete!!\n\nDetermining current active playthrough...");
+                Console.WriteLine(" Previously loaded playthrough detected!!\n\nDetermining current active playthrough...\n");
 
                 if (File.Exists($"{savesDir}\\last_loaded_playthrough.json") && File.ReadAllText($"{savesDir}\\last_loaded_playthrough.json").Length>0) 
                 {
@@ -96,15 +96,17 @@ namespace saveManager
                     string fileString = File.ReadAllText($"{savesDir}\\last_loaded_playthrough.json");
                     JsonArray array = JsonNode.Parse(fileString).AsArray();
 
-                    Console.WriteLine(array[0]["lifePath"]);
+                    string l = ((LifePath)array[0]["bodyGender"].GetValue<int>()).ToString();
 
                     //display last loaded playthroughs and prompt user to proceed as is or switch playthrough
-                    Console.WriteLine("Currentlty loaded playthroughs:\n");
-                    for(int i = 0; i < array.Count; i++) {
-                        Console.WriteLine($"{(LifePath)array[i]["lifePath"]} ({array[i]["bodyGender"]} Body + {array[i]["voiceGender"]} Voice), {array[i]["playThruId"]}");
+                    Console.WriteLine("Currently loaded playthroughs:");
+                    for (int i = 0; i < array.Count; i++)
+                    {
+                        Console.WriteLine(((LifePath)array[i]["lifePath"].GetValue<int>()).ToString() + " (" + ((BodyGender)array[i]["bodyGender"].GetValue<int>()).ToString() + " Body + "
+                        + ((VoiceGender)array[i]["voiceGender"].GetValue<int>()).ToString() + " Voice), " + array[i]["playThruId"]);
                     }
 
-                    Console.WriteLine("Do you want to:\n1. Start game with this playthrough.\n2. Choose a different playthrough to load.");
+                    Console.WriteLine("\nDo you want to:\n1. Start game with these playthroughs.\n2. Choose different playthroughs to load.");
                     switch (Convert.ToInt32(Console.ReadLine()))
                     {
                         case 1:
@@ -125,14 +127,14 @@ namespace saveManager
                 }
             }
 
-            Console.Write("Scanning save file directory...");
+            //Console.Write("Scanning save file directory...");
 
             savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir)); //build list of paths to all individual save directories
             Thread.Sleep(2000);
 
-            Console.Write(" Complete!!\n\nBuilding save file list...");
+            Console.WriteLine("Building save file list...");
 
-            Save[] allSaves = scanSaves(savesDirList);
+            List<Save> allSaves = scanSaves(savesDirList);
 
             Save[] playThruListArr = allSaves.Distinct(new SaveComparer()).ToArray(); //used to populate playthrough selection list
             Thread.Sleep(2000);
@@ -141,7 +143,7 @@ namespace saveManager
             Console.WriteLine(" Complete!!\n\nPlease select a playthrough/s to load (seperate multiple choices with):\n");
             foreach (var (index, item) in playThruListArr.Select((item, index) => (index, item)))
             {
-                Console.WriteLine($"{index + 1}. {item.ToString()}, {Array.FindAll(allSaves, x => new SaveComparer().Equals(x, item)).Length} Saves");
+                Console.WriteLine($"{index + 1}. {item.ToString()}, {allSaves.FindAll( x => new SaveComparer().Equals(x, item)).Count} Saves");
             }
 
             string[] userEntry = Console.ReadLine().Split(",");
@@ -150,26 +152,20 @@ namespace saveManager
 
             foreach (var (index, item) in userEntry.Select((item, index) => (index, item))){ selection[index] = playThruListArr[Int32.Parse(item) - 1]; }
 
-            //Save choice = playThruListArr[Convert.ToInt32(Console.ReadLine()) - 1];
-
             var opts = new JsonSerializerOptions { WriteIndented = true };
             string selectionStr = JsonSerializer.Serialize(selection,opts); //JSON object containing relevant playthrough data to be written to last_loaded_playthrough.json
 
-            Console.Write(selectionStr);
+            foreach (Save save in selection) { allSaves.RemoveAll(x => new SaveComparer().Equals(x, save)); } //list of all saves to be removed from main save directory
 
-            //Save[] allOtherSaves = Array.FindAll(allSaves, x => !(new SaveComparer().Equals(x, choice))); //list of all saves to be removed from main save directory
-
-            //moveSaves(allOtherSaves, $"{savesDir}\\Inactive");
+            moveSaves(allSaves, $"{savesDir}\\Inactive");
 
             if (File.Exists($"{savesDir}\\last_loaded_playthrough.json")) //if file exists, delete it and remake it with new values
             {
                 File.Delete($"{savesDir}\\last_loaded_playthrough.json");
-                //var options = new JsonSerializerOptions { WriteIndented = true };
                 using (StreamWriter sw = File.CreateText($"{savesDir}\\last_loaded_playthrough.json")) { sw.WriteLine(selectionStr); }
             }
             else //make file with values
             {
-                //var options = new JsonSerializerOptions { WriteIndented = true };
                 using (StreamWriter sw = File.CreateText($"{savesDir}\\last_loaded_playthrough.json")) { sw.WriteLine(selectionStr); }
             }
 
@@ -200,9 +196,9 @@ namespace saveManager
             }
         }
 
-        public static Save[] scanSaves(List<string> dirList)
+        public static List<Save> scanSaves(List<string> dirList)
         {
-            Save[] savesArr = new Save[dirList.Count];
+            List<Save> savesList = new List<Save>();
 
             foreach (var (index, item) in dirList.Select((item, index) => (index, item))) //deserialize each save file's metadata and use to build array of all saves
             {
@@ -211,17 +207,18 @@ namespace saveManager
                 JsonDocument document = JsonDocument.Parse(jsonString);
                 JsonElement root = document.RootElement.GetProperty("Data").GetProperty("metadata");
 
-                savesArr[index] = new Save(
+                savesList.Add(new Save(
                                         root.GetProperty("name").GetString(),
                                         item,
                                         root.GetProperty("playthroughID").GetString(),
                                         (LifePath)Enum.Parse(typeof(LifePath), root.GetProperty("lifePath").GetString()),
                                         (BodyGender)Enum.Parse(typeof(BodyGender), root.GetProperty("bodyGender").GetString()),
                                         (VoiceGender)Enum.Parse(typeof(VoiceGender), root.GetProperty("brainGender").GetString())
-                                    );
+                                    )
+                );
             }
 
-            return savesArr;
+            return savesList;
         }
 
         public static void moveSaves(List<string> saves, string dest) {
@@ -263,7 +260,7 @@ namespace saveManager
             Console.WriteLine("Saves moved successfully!!\n");
         }
 
-        public static void moveSaves(Save[] saves, string dest) {
+        public static void moveSaves(List<Save> saves, string dest) {
             foreach (Save save in saves)
             {
                 string dir = save.saveDir.Split("\\").Last();
