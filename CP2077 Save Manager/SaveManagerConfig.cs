@@ -23,16 +23,16 @@ namespace saveManager
 {
     public class SaveManagerConfig
     {
-  
-        public Save[] lastLoadedArr { get; set; } 
-        public string launcherDir { get; set; } 
-        public int saveNum{ get; set; }
 
-        public SaveManagerConfig(Save[] saves, string dir, int num)
+        public Save[] LastLoadedArr { get; set; }
+        public string LauncherDir { get; set; }
+        public int SaveNum { get; set; }
+
+        public SaveManagerConfig(Save[] lastLoadedArr, string launcherDir, int saveNum)
         {
-            lastLoadedArr = saves;
-            launcherDir = dir;
-            saveNum = num;
+            LastLoadedArr = lastLoadedArr;
+            LauncherDir = launcherDir;
+            SaveNum = saveNum;
         }
 
         /* public override string ToString() 

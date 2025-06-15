@@ -38,23 +38,32 @@ namespace saveManager
         static void Main()
         {
             List<string> savesDirList;
+            SaveManagerConfig config = new SaveManagerConfig(null, null, 0);
 
             Console.WriteLine("Welcome to the CP2077 Save Manager!!!\n");
 
-            string launcherPath = String.Empty;
             bool validPath = false;
+            bool hasConfig = false;
 
-            //check if there is a saved launcher path, and if the path contains the launcher.
-            if (File.Exists($"{savesDir}\\launcher_path.txt"))
+            Console.Write("Scanning for configuration settings...");
+
+            //check for previously saved configuration...
+            if (File.Exists($"{savesDir}\\save_manager_data.json"))
             {
-                if (File.Exists(File.ReadAllText($"{savesDir}\\launcher_path.txt") + "\\REDprelauncher.exe"))
-                {
-                    launcherPath = File.ReadAllText($"{savesDir}\\launcher_path.txt");
-                    validPath = true;
-                }
-            }
+                string jsonString = File.ReadAllText($"{savesDir}\\save_manager_data.json");
+                SaveManagerConfig temp = JsonSerializer.Deserialize<SaveManagerConfig>(jsonString);
 
-            //If no valid launcher path is detected, prompt user for CP2077 installation directory, check to mke sure launcher exists
+                if (temp.SaveNum >= Directory.EnumerateDirectories(savesDir).Count()
+                && File.Exists($"{temp.LauncherDir}\\REDprelauncher.exe"))
+                {
+                    Console.WriteLine(" Configuration settings loaded!!!");
+                    config = temp;
+                    validPath = true;
+                    hasConfig = true;
+                }
+            } else { Console.WriteLine(" No configuration settings found."); }
+
+            //If no config settings are detected, prompt user for CP2077 installation directory, check to mke sure launcher exists
             while (!validPath)
             {
                 FolderBrowserDialog dirBrowser = new FolderBrowserDialog();
@@ -68,84 +77,73 @@ namespace saveManager
                 {
                     if (File.Exists($"{dirBrowser.SelectedPath}\\REDprelauncher.exe"))
                     {
-                        launcherPath = dirBrowser.SelectedPath;
+                        config.LauncherDir = dirBrowser.SelectedPath;
                         validPath = true;
-                        File.Delete($"{savesDir}\\launcher_path.txt");
-                        File.WriteAllText($"{savesDir}\\launcher_path.txt", launcherPath);
                     }
                     else { Console.WriteLine($"Launcher not found in {dirBrowser.SelectedPath}, please choose a different folder.\n"); }
                 }
                 else { Console.WriteLine("No folder selected, please try again.\n"); }
             }
 
-            File.WriteAllText($"{savesDir}\\launcher_path.txt", launcherPath);
-
-            Process launcher = new Process() { StartInfo = new ProcessStartInfo { FileName = $"{launcherPath}\\REDprelauncher.exe" } };
-
-            launcher.Exited += (sender, e) => { System.Console.WriteLine("Process has exited."); };
-
-            Console.Write("Scanning save file directory...");
-
             //Check to see if there is a playthrough already loaded, and ask user how to proceed
             if (Directory.Exists($"{savesDir}\\Inactive"))
             {
-                Console.WriteLine(" Previously loaded playthrough detected!!\n\nDetermining current active playthrough...\n");
+                Console.WriteLine("\nPreviously loaded playthrough detected!!\n\nDetermining current active playthrough...\n");
 
-                if (File.Exists($"{savesDir}\\save_manager_data.json") && File.ReadAllText($"{savesDir}\\save_manager_data.json").Length > 0)
+                if (hasConfig)
                 {
                     //deserialize save_manager_data.txt 
-                    string fileString = File.ReadAllText($"{savesDir}\\save_manager_data.json");
-                    JsonArray array = JsonNode.Parse(fileString).AsArray();
+                    //string fileString = File.ReadAllText($"{savesDir}\\save_manager_data.json");
+                    //JsonNode node = JsonNode.Parse(fileString);
 
-                    string l = ((LifePath)array[0]["bodyGender"].GetValue<int>()).ToString();
+                    //string l = ((LifePath)array[0]["BodyGender"].GetValue<int>()).ToString();
 
                     //display last loaded playthroughs and prompt user to proceed as is or switch playthrough
                     Console.WriteLine("Currently loaded playthroughs:");
-                    for (int i = 0; i < array.Count; i++)
+                    foreach (Save save in config.LastLoadedArr)
                     {
-                        Console.WriteLine(((LifePath)array[i]["lifePath"].GetValue<int>()).ToString() + " (" + ((BodyGender)array[i]["bodyGender"].GetValue<int>()).ToString() + " Body + "
-                        + ((VoiceGender)array[i]["voiceGender"].GetValue<int>()).ToString() + " Voice), " + array[i]["playThruId"]);
+                        Console.WriteLine(save.ToString());
+
+                        //((LifePath)array[i]["LifePath"].GetValue<int>()).ToString() + " (" + ((BodyGender)array[i]["BodyGender"].GetValue<int>()).ToString() + " Body + "
+                        //+ ((VoiceGender)array[i]["VoiceGender"].GetValue<int>()).ToString() + " Voice), " + array[i]["PlayThruId"]);
                     }
 
-                    Console.WriteLine("\nDo you want to:\n1. Start game with these playthroughs.\n2. Choose different playthroughs to load.");
+                    Console.WriteLine("\nDo you want to:\n1. Close Program.\n2. Choose different playthroughs to load.");
                     switch (Convert.ToInt32(Console.ReadLine()))
                     {
                         case 1:
-                            Console.WriteLine("Complete!!\nLaunching Cyberpunk 2077...");
-                            launcher.Start();
-                            launcher.WaitForExit(30000);
+                            // Console.WriteLine("Complete!!\nLaunching Cyberpunk 2077...");
+                            // launcher.Start();
+                            // launcher.WaitForExit(30000);
                             return;
                         case 2:
                             moveSaves(new List<string>(Directory.EnumerateDirectories($"{savesDir}\\Inactive")), savesDir);
                             Directory.Delete($"{savesDir}\\Inactive");
                             break;
                         default:
-                            Console.WriteLine("Complete!!\nLaunching Cyberpunk 2077...");
-                            launcher.Start();
-                            launcher.WaitForExit(30000);
+                            // Console.WriteLine("Complete!!\nLaunching Cyberpunk 2077...");
+                            // launcher.Start();
+                            // launcher.WaitForExit(30000);
                             return;
                     }
                 }
-            }
+            } else { Console.WriteLine("No previous playthrough detected."); }
 
             savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir)); //build list of paths to all individual save directories
             Thread.Sleep(2000);
 
-            Console.WriteLine("Building save file list...");
+            Console.Write("Building save file list...");
 
             List<Save> allSaves = scanSaves(savesDirList);
 
-            int saveNum = 0;
-
-            foreach (var (index, item) in allSaves.Select((item, index) => (index, item)))
+            foreach (Save save in allSaves)
             {
-                if (!(MyRegex().IsMatch(item.saveDir.Split("\\").Last())))
+                if (!(MyRegex().IsMatch(save.SaveDir.Split("\\").Last())))
                 {
-                    string newDir = $"{savesDir}\\Save{index} - {item.ToString()}";
-                    //Console.WriteLine(item.saveDir.Split("\\").Last());
-                    Console.WriteLine(newDir);
-                    item.saveDir = newDir;
-                    Directory.Move(item.saveDir, $"{newDir}");
+                    string newDir = $"{savesDir}\\Save{config.SaveNum} - {save.ToString()}";
+                    Directory.Move(save.SaveDir, $"{newDir}");
+                    save.SaveDir = newDir;
+                    config.SaveNum++;
                 }
             }
 
@@ -161,34 +159,18 @@ namespace saveManager
 
             string[] userEntry = Console.ReadLine().Split(",");
 
-            Save[] selection = new Save[userEntry.Length];
+            config.LastLoadedArr = new Save[userEntry.Length];
 
-            foreach (var (index, item) in userEntry.Select((item, index) => (index, item))) { selection[index] = playThruListArr[Int32.Parse(item) - 1]; }
+            foreach (var (index, item) in userEntry.Select((item, index) => (index, item))) { config.LastLoadedArr[index] = playThruListArr[Int32.Parse(item) - 1]; }
 
-            var opts = new JsonSerializerOptions { WriteIndented = true };
-            string selectionStr = JsonSerializer.Serialize(selection, opts); //JSON object containing relevant playthrough data to be written to save_manager_data.json
-
-            foreach (Save save in selection) { allSaves.RemoveAll(x => new SaveComparer().Equals(x, save)); } //list of all saves to be removed from main save directory
+            foreach (Save save in config.LastLoadedArr) { allSaves.RemoveAll(x => new SaveComparer().Equals(x, save)); } //list of all saves to be removed from main save directory
 
             moveSaves(allSaves, $"{savesDir}\\Inactive");
 
-            var forecastObject = new JsonObject
-            {
-                ["last"] = new DateTime(2019, 8, 1),
-                ["Temperature"] = 25,
-                ["Summary"] = "Hot",
-                ["DatesAvailable"] = new JsonArray(
-                    new DateTime(2019, 8, 1), new DateTime(2019, 8, 2)),
-                ["TemperatureRanges"] = new JsonObject
-                {
-                    ["Cold"] = new JsonObject
-                    {
-                        ["High"] = 20,
-                        ["Low"] = -10
-                    }
-                },
-                ["SummaryWords"] = new JsonArray("Cool", "Windy", "Humid")
-            };
+            var opts = new JsonSerializerOptions { WriteIndented = true };
+            string selectionStr = JsonSerializer.Serialize(config,opts); //JSON object containing relevant config data to be written to save_manager_data.json
+
+            //Console.WriteLine(selectionStr);
 
             if (File.Exists($"{savesDir}\\save_manager_data.json")) //if file exists, delete it and remake it with new values
             {
@@ -214,15 +196,15 @@ namespace saveManager
 
                 else if (s1 == null || s2 == null) { return false; }
 
-                return s1.playThruId == s2.playThruId
-                && s1.lifePath == s2.lifePath
-                && s1.bodyGender == s2.bodyGender
-                && s1.voiceGender == s2.voiceGender;
+                return s1.PlayThruId == s2.PlayThruId
+                && s1.LifePath == s2.LifePath
+                && s1.BodyGender == s2.BodyGender
+                && s1.VoiceGender == s2.VoiceGender;
             }
 
             public int GetHashCode(Save obj)
             {
-                string s = $"{obj.playThruId} + {obj.lifePath} + {obj.bodyGender} + {obj.voiceGender}";
+                string s = $"{obj.PlayThruId} + {obj.LifePath} + {obj.BodyGender} + {obj.VoiceGender}";
                 return s.GetHashCode();
             }
         }
@@ -238,8 +220,7 @@ namespace saveManager
                 JsonDocument document = JsonDocument.Parse(jsonString);
                 JsonElement root = document.RootElement.GetProperty("Data").GetProperty("metadata");
 
-                savesList.Add(new Save(
-                                        root.GetProperty("name").GetString(),
+                savesList.Add( new Save(
                                         item,
                                         root.GetProperty("playthroughID").GetString(),
                                         (LifePath)Enum.Parse(typeof(LifePath), root.GetProperty("lifePath").GetString()),
@@ -295,23 +276,23 @@ namespace saveManager
         public static void moveSaves(List<Save> saves, string dest) {
             foreach (Save save in saves)
             {
-                string dir = save.saveDir.Split("\\").Last();
+                string dir = save.SaveDir.Split("\\").Last();
 
                 try
                 {
                     // Ensure the source directory exists
-                    if (Directory.Exists(save.saveDir) == true)
+                    if (Directory.Exists(save.SaveDir) == true)
                     {
                         // Ensure the destination directory exists
                         if (Directory.Exists(dest) == true)
                         {
                             // Perform the move
-                            Directory.Move(save.saveDir, $"{dest}\\{dir}");
+                            Directory.Move(save.SaveDir, $"{dest}\\{dir}");
                         }
                         else
                         {
                             Directory.CreateDirectory($"{savesDir}\\Inactive");
-                            Directory.Move(save.saveDir, $"{dest}\\{dir}");
+                            Directory.Move(save.SaveDir, $"{dest}\\{dir}");
                         }
                     }
                     else

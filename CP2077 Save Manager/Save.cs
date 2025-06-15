@@ -28,30 +28,27 @@ namespace saveManager
     public class Save
     {
         [JsonIgnore]
-        public string saveName { get; set; } //TODO: refactor to have this field populated from saveDir, or maybe remofe altogether. Not currently used.
-        [JsonIgnore]
-        public string saveDir { get; set; } //TODO: maybe change to be saved as a Path instead of a string?
-        public string playThruId { get; set; }
-        public LifePath lifePath { get; set; } 
-        public BodyGender bodyGender { get; set; } //Body type, either male or female. Does not relate to genitalia (probably saved in .dat file)
-        public VoiceGender voiceGender { get; set; } //Voice type, either male or female
+        public string SaveDir { get; set; } //TODO: maybe change to be saved as a Path instead of a string?
+        public string PlayThruId { get; set; }
+        public LifePath LifePath { get; set; } 
+        public BodyGender BodyGender { get; set; } //Body type, either male or female. Does not relate to genitalia (probably saved in .dat file)
+        public VoiceGender VoiceGender { get; set; } //Voice type, either male or female
 
-        public Save(string name, string dir, string playthru, LifePath path, BodyGender bod, VoiceGender vox)
+        public Save(string saveDir, string playThruId, LifePath lifePath, BodyGender bodyGender, VoiceGender voiceGender)
         {
-            saveName = name;
-            saveDir = dir;
-            playThruId = playthru;
-            lifePath = path;
-            bodyGender = bod;
-            voiceGender = vox;
+            SaveDir = saveDir;
+            PlayThruId = playThruId;
+            LifePath = lifePath;
+            BodyGender = bodyGender;
+            VoiceGender = voiceGender;
         }
 
-        public override string ToString() 
+        public override string ToString()
         {
-            string output = $"{this.lifePath.ToString()} ({this.bodyGender.ToString()} Body + {this.voiceGender.ToString()} Voice), {this.playThruId}";
+            string output = $"{this.LifePath.ToString()} ({this.BodyGender.ToString()} Body + {this.VoiceGender.ToString()} Voice), {this.PlayThruId}";
             return output;
         }
 
-        public Save() { }
+        public Save(){}
     }
 }
