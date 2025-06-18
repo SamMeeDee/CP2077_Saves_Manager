@@ -18,27 +18,25 @@ limitations under the License.
 
 using System;
 using System.Text.Json.Serialization;
+using System.Diagnostics.CodeAnalysis;
 
 namespace saveManager
 {
     public class SaveManagerConfig
     {
-
-        public Save[] LastLoadedArr { get; set; }
         public string LauncherDir { get; set; }
         public int SaveNum { get; set; }
 
-        public SaveManagerConfig(Save[] lastLoadedArr, string launcherDir, int saveNum)
+        public SaveManagerConfig(string launcherDir, int saveNum)
         {
-            LastLoadedArr = lastLoadedArr;
             LauncherDir = launcherDir;
             SaveNum = saveNum;
         }
 
-        /* public override string ToString() 
+        public override string ToString() 
         {
-            string output = $"{this.lifePath.ToString()} ({this.bodyGender.ToString()} Body + {this.voiceGender.ToString()} Voice), {this.playThruId}";
+            string output = $"Launcher Directory: {LauncherDir}\nNumber of saves since first use: {SaveNum.ToString()}";
             return output;
-        } */
+        } 
     }
 }

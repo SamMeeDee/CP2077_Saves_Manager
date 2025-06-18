@@ -27,6 +27,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Windows.Forms;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.CodeDom;
 
 namespace saveManager
 {
@@ -38,32 +39,36 @@ namespace saveManager
         static void Main()
         {
             List<string> savesDirList;
-            SaveManagerConfig config = new SaveManagerConfig(null, null, 0);
+            List<Save> allSaves;
+            string launcherDir;
+            int saveNum;
+            bool validPath = false;
+            //SaveManagerConfig config = new SaveManagerConfig(null, 0);
 
             Console.WriteLine("Welcome to the CP2077 Save Manager!!!\n");
 
-            bool validPath = false;
-            bool hasConfig = false;
+            //bool hasConfig = false;
 
-            Console.Write("Scanning for configuration settings...");
-
-            //check for previously saved configuration...
-            if (File.Exists($"{savesDir}\\save_manager_data.json"))
+            //check for previously saved launcher path
+            if (File.Exists($"{savesDir}\\launcher_directory.txt"))
             {
-                string jsonString = File.ReadAllText($"{savesDir}\\save_manager_data.json");
-                SaveManagerConfig temp = JsonSerializer.Deserialize<SaveManagerConfig>(jsonString);
+                string str = File.ReadAllText($"{savesDir}\\launcher_directory.txt");
+                Console.WriteLine(str);
 
-                if (temp.SaveNum >= Directory.EnumerateDirectories(savesDir).Count()
-                && File.Exists($"{temp.LauncherDir}\\REDprelauncher.exe"))
+                if (File.Exists($"{str}\\REDprelauncher.exe"))
                 {
-                    Console.WriteLine(" Configuration settings loaded!!!");
-                    config = temp;
+                    launcherDir = str;
                     validPath = true;
-                    hasConfig = true;
+                    //hasConfig = true;
                 }
-            } else { Console.WriteLine(" No configuration settings found."); }
+                else
+                {
+                    File.Delete($"{savesDir}\\launcher_directory.json");
+                    Console.WriteLine("The saved path was invalid.");
+                }
+            }
 
-            //If no config settings are detected, prompt user for CP2077 installation directory, check to mke sure launcher exists
+            //If no launcher path detected, prompt user for CP2077 installation directory, check to make sure launcher exists
             while (!validPath)
             {
                 FolderBrowserDialog dirBrowser = new FolderBrowserDialog();
@@ -77,7 +82,8 @@ namespace saveManager
                 {
                     if (File.Exists($"{dirBrowser.SelectedPath}\\REDprelauncher.exe"))
                     {
-                        config.LauncherDir = dirBrowser.SelectedPath;
+                        launcherDir = dirBrowser.SelectedPath;
+                        using (StreamWriter sw = File.CreateText($"{savesDir}\\launcher_directory.txt")) { sw.Write(launcherDir); }
                         validPath = true;
                     }
                     else { Console.WriteLine($"Launcher not found in {dirBrowser.SelectedPath}, please choose a different folder.\n"); }
@@ -88,10 +94,20 @@ namespace saveManager
             //Check to see if there is a playthrough already loaded, and ask user how to proceed
             if (Directory.Exists($"{savesDir}\\Inactive"))
             {
-                Console.WriteLine("\nPreviously loaded playthrough detected!!\n\nDetermining current active playthrough...\n");
+                Console.WriteLine("\nPreviously loaded playthrough detected!!\n\nDetermining current active playthroughs...\n");
 
-                if (hasConfig)
+                savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir)); //Scan main folder
+                savesDirList.Remove($"{savesDir}\\Inactive"); //remove 
+
+                if (savesDirList.Count() > 0)
                 {
+                    allSaves = ScanSaves(savesDirList);
+
+                    savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir,"",SearchOption.AllDirectories)); //Scan for all saves, including Inactive ones
+
+                    Save[] lastLoadedArr = allSaves.Distinct(new SaveComparer()).ToArray();
+                    saveNum = RenameSaves(allSaves, GetCurrentSaveNum(savesDirList));
+
                     //deserialize save_manager_data.txt 
                     //string fileString = File.ReadAllText($"{savesDir}\\save_manager_data.json");
                     //JsonNode node = JsonNode.Parse(fileString);
@@ -100,7 +116,7 @@ namespace saveManager
 
                     //display last loaded playthroughs and prompt user to proceed as is or switch playthrough
                     Console.WriteLine("Currently loaded playthroughs:");
-                    foreach (Save save in config.LastLoadedArr)
+                    foreach (Save save in lastLoadedArr)
                     {
                         Console.WriteLine(save.ToString());
 
@@ -117,7 +133,7 @@ namespace saveManager
                             // launcher.WaitForExit(30000);
                             return;
                         case 2:
-                            moveSaves(new List<string>(Directory.EnumerateDirectories($"{savesDir}\\Inactive")), savesDir);
+                            MoveSaves(new List<string>(Directory.EnumerateDirectories($"{savesDir}\\Inactive")), savesDir);
                             Directory.Delete($"{savesDir}\\Inactive");
                             break;
                         default:
@@ -127,25 +143,16 @@ namespace saveManager
                             return;
                     }
                 }
-            } else { Console.WriteLine("No previous playthrough detected."); }
+            
+            } else { Console.WriteLine("No previous playthroughs detected.\n"); }
 
             savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir)); //build list of paths to all individual save directories
             Thread.Sleep(2000);
 
             Console.Write("Building save file list...");
 
-            List<Save> allSaves = scanSaves(savesDirList);
-
-            foreach (Save save in allSaves)
-            {
-                if (!(MyRegex().IsMatch(save.SaveDir.Split("\\").Last())))
-                {
-                    string newDir = $"{savesDir}\\Save{config.SaveNum} - {save.ToString()}";
-                    Directory.Move(save.SaveDir, $"{newDir}");
-                    save.SaveDir = newDir;
-                    config.SaveNum++;
-                }
-            }
+            allSaves = ScanSaves(savesDirList);
+            saveNum = RenameSaves(allSaves, GetCurrentSaveNum(savesDirList));
 
             Save[] playThruListArr = allSaves.Distinct(new SaveComparer()).ToArray(); //used to populate playthrough selection list
             Thread.Sleep(2000);
@@ -159,28 +166,28 @@ namespace saveManager
 
             string[] userEntry = Console.ReadLine().Split(",");
 
-            config.LastLoadedArr = new Save[userEntry.Length];
+            Save[] selection = new Save[userEntry.Length];
 
-            foreach (var (index, item) in userEntry.Select((item, index) => (index, item))) { config.LastLoadedArr[index] = playThruListArr[Int32.Parse(item) - 1]; }
+            foreach (var (index, item) in userEntry.Select((item, index) => (index, item))) { selection[index] = playThruListArr[Int32.Parse(item) - 1]; }
 
-            foreach (Save save in config.LastLoadedArr) { allSaves.RemoveAll(x => new SaveComparer().Equals(x, save)); } //list of all saves to be removed from main save directory
+            foreach (Save save in selection) { allSaves.RemoveAll(x => new SaveComparer().Equals(x, save)); } //list of all saves to be removed from main save directory
 
-            moveSaves(allSaves, $"{savesDir}\\Inactive");
+            MoveSaves(allSaves, $"{savesDir}\\Inactive");
 
-            var opts = new JsonSerializerOptions { WriteIndented = true };
-            string selectionStr = JsonSerializer.Serialize(config,opts); //JSON object containing relevant config data to be written to save_manager_data.json
+            // var opts = new JsonSerializerOptions { WriteIndented = true };
+            // string selectionStr = JsonSerializer.Serialize(config,opts); //JSON object containing relevant config data to be written to save_manager_data.json
 
-            //Console.WriteLine(selectionStr);
+            // //Console.WriteLine(selectionStr);
 
-            if (File.Exists($"{savesDir}\\save_manager_data.json")) //if file exists, delete it and remake it with new values
-            {
-                File.Delete($"{savesDir}\\save_manager_data.json");
-                using (StreamWriter sw = File.CreateText($"{savesDir}\\save_manager_data.json")) { sw.WriteLine(selectionStr); }
-            }
-            else //make file with values
-            {
-                using (StreamWriter sw = File.CreateText($"{savesDir}\\save_manager_data.json")) { sw.WriteLine(selectionStr); }
-            }
+            // if (File.Exists($"{savesDir}\\save_manager_data.json")) //if file exists, delete it and remake it with new values
+            // {
+            //     File.Delete($"{savesDir}\\save_manager_data.json");
+            //     using (StreamWriter sw = File.CreateText($"{savesDir}\\save_manager_data.json")) { sw.WriteLine(selectionStr); }
+            // }
+            // else //make file with values
+            // {
+            //     using (StreamWriter sw = File.CreateText($"{savesDir}\\save_manager_data.json")) { sw.WriteLine(selectionStr); }
+            // }
 
             // Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
 
@@ -209,31 +216,85 @@ namespace saveManager
             }
         }
 
-        public static List<Save> scanSaves(List<string> dirList)
+        public static List<Save> ScanSaves(List<string> dirList)
         {
             List<Save> savesList = new List<Save>();
 
             foreach (var (index, item) in dirList.Select((item, index) => (index, item))) //deserialize each save file's metadata and use to build array of all saves
             {
-                string fileName = item + "\\metadata.9.json"; //Let's hope 2.3 doesn't mess with this...
-                string jsonString = File.ReadAllText(fileName);
-                JsonDocument document = JsonDocument.Parse(jsonString);
-                JsonElement root = document.RootElement.GetProperty("Data").GetProperty("metadata");
+                try
+                {
+                    string fileName = item + "\\metadata.9.json"; //Let's hope 2.3 doesn't mess with this...
+                    string jsonString = File.ReadAllText(fileName);
+                    JsonDocument document = JsonDocument.Parse(jsonString);
+                    JsonElement root = document.RootElement.GetProperty("Data").GetProperty("metadata");
 
-                savesList.Add( new Save(
-                                        item,
-                                        root.GetProperty("playthroughID").GetString(),
-                                        (LifePath)Enum.Parse(typeof(LifePath), root.GetProperty("lifePath").GetString()),
-                                        (BodyGender)Enum.Parse(typeof(BodyGender), root.GetProperty("bodyGender").GetString()),
-                                        (VoiceGender)Enum.Parse(typeof(VoiceGender), root.GetProperty("brainGender").GetString())
-                                    )
-                );
+                    savesList.Add(new Save(
+                                            item,
+                                            root.GetProperty("playthroughID").GetString(),
+                                            (LifePath)Enum.Parse(typeof(LifePath), root.GetProperty("lifePath").GetString()),
+                                            (BodyGender)Enum.Parse(typeof(BodyGender), root.GetProperty("bodyGender").GetString()),
+                                            (VoiceGender)Enum.Parse(typeof(VoiceGender), root.GetProperty("brainGender").GetString())
+                                        ));
+                }
+                catch (IOException e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+                catch (JsonException e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+                catch (InvalidOperationException e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+                catch (KeyNotFoundException e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+
             }
 
             return savesList;
         }
 
-        public static void moveSaves(List<string> saves, string dest)
+        public static int RenameSaves(List<Save> saves, int num)
+        {
+            foreach (Save save in saves)
+            {
+                if (!(MyRegex().IsMatch(save.SaveDir.Split("\\").Last())))
+                {
+                    string newDir = $"{savesDir}\\Save{num} - {save.ToString()}";
+                    Console.WriteLine(newDir);
+                    Directory.Move(save.SaveDir, $"{newDir}");
+                    save.SaveDir = newDir;
+                    num++;
+                }
+            }
+
+            return num;
+        }
+
+        public static int GetCurrentSaveNum(List<string> dirArr)
+        {
+            int num = 0;
+
+            foreach (string dir in dirArr)
+            {
+                string str = dir.Split("\\").Last();
+                if (MyRegex().IsMatch(str))
+                {
+                    int i = Int32.Parse(MyRegex().Match(str).Groups[1].Value);
+                    if (num < i) { num = i; }
+                }
+
+            }
+
+            return num+1;
+        }
+
+        public static void MoveSaves(List<string> saves, string dest)
         {
 
             foreach (string save in saves)
@@ -253,7 +314,7 @@ namespace saveManager
                         }
                         else
                         {
-                            Directory.CreateDirectory($"{dest}"); //Note: I don't forsee a use case when the main save folder would not exist, but may be worth tweaking.
+                            Directory.CreateDirectory($"{dest}");
                             Directory.Move(save, $"{dest}\\{dir}");
                         }
                     }
@@ -273,7 +334,7 @@ namespace saveManager
             Console.WriteLine("Saves moved successfully!!\n");
         }
 
-        public static void moveSaves(List<Save> saves, string dest) {
+        public static void MoveSaves(List<Save> saves, string dest) {
             foreach (Save save in saves)
             {
                 string dir = save.SaveDir.Split("\\").Last();
@@ -291,7 +352,7 @@ namespace saveManager
                         }
                         else
                         {
-                            Directory.CreateDirectory($"{savesDir}\\Inactive");
+                            Directory.CreateDirectory($"{dest}");
                             Directory.Move(save.SaveDir, $"{dest}\\{dir}");
                         }
                     }
@@ -311,7 +372,7 @@ namespace saveManager
             Console.WriteLine("Saves moved successfully!!\n");
         }
 
-        [GeneratedRegex("Save\\d{1,3} - \\w{5,9} \\(\\w{4,6} Body \\+ \\w{1,10} Voice\\), \\w{16}")]
+        [GeneratedRegex("Save(\\d{1,3}) - \\w{5,9} \\(\\w{4,6} Body \\+ \\w{1,10} Voice\\), \\w{16}")]
         private static partial Regex MyRegex();
     }
 
