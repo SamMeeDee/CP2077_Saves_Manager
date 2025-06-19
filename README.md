@@ -8,13 +8,15 @@ As it currently sits (06/10/2025, version 2.21), there is no way in-game to mana
 
 # Functionality
 
-On first use, the program will ask you to identify the installation folder for the game, which is used to launch the game later. 
+On first use, if using the launcher-enabled release, the program will ask you to identify the installation folder for the game, which is used to launch the game later. 
 
-It will then scan all the saves in the save game folder and determine a list of available characters/playthroughs. You can then choose which of these you wish to "load". The program will move all other saves out of your main save folder and into a backup folder, so that only the saves for the playthrough you want are visible to the game. 
+It will then scan all the saves in the save game folder and determine a list of available characters/playthroughs. It will also rename all the save file folders to a new uniform name format to prevent any name collisions. This is not making any changes to the save data itself. 
 
-Finally, the program will the launch the game (more specifically, it will launch REDLauncher, for modding compatibility). 
+You can then choose which of these you wish to "load". The program will move all other saves out of your main save folder and into a backup folder, so that only the saves for the playthrough you want are visible to the game. 
 
-When you next run the program, it will auto-detect your previously chosen playthrough and give you the choice to launch the game with that same playthrough, or go back and pick a different one. 
+In the main release, the program will close at this point. However, there is a seperate working branch where the program will the launch the game (more specifically, it will launch REDLauncher, for modding compatibility). I will be maintaining this branch along with the main branch. 
+
+When you next run the program, it will auto-detect your previously chosen playthroughs and give you the choice to leave it as is, or go back and pick a different one. This may be useful to just sanity-check what playthroughs are currently active. 
 
 # How it Works
 
