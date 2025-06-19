@@ -40,7 +40,7 @@ namespace saveManager
         {
             List<string> savesDirList;
             List<Save> allSaves;
-            string launcherDir;
+            string launcherDir = String.Empty;
             int saveNum;
             bool validPath = false;
             //SaveManagerConfig config = new SaveManagerConfig(null, 0);
@@ -90,6 +90,10 @@ namespace saveManager
                 }
                 else { Console.WriteLine("No folder selected, please try again.\n"); }
             }
+            
+            Process launcher = new Process() { StartInfo = new ProcessStartInfo { FileName = $"{launcherDir}\\REDprelauncher.exe" } };
+
+            launcher.Exited += (sender, e) => {System.Console.WriteLine("Process has exited.");};
 
             //Check to see if there is a playthrough already loaded, and ask user how to proceed
             if (Directory.Exists($"{savesDir}\\Inactive"))
@@ -103,7 +107,7 @@ namespace saveManager
                 {
                     allSaves = ScanSaves(savesDirList);
 
-                    savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir,"",SearchOption.AllDirectories)); //Scan for all saves, including Inactive ones
+                    savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir, "", SearchOption.AllDirectories)); //Scan for all saves, including Inactive ones
 
                     Save[] lastLoadedArr = allSaves.Distinct(new SaveComparer()).ToArray();
                     saveNum = RenameSaves(allSaves, GetCurrentSaveNum(savesDirList));
@@ -143,11 +147,12 @@ namespace saveManager
                             return;
                     }
                 }
-            
-            } else { Console.WriteLine("No previous playthroughs detected.\n"); }
+
+            }
+            else { Console.WriteLine("No previously loaded playthroughs detected.\n"); }
 
             savesDirList = new List<string>(Directory.EnumerateDirectories(savesDir)); //build list of paths to all individual save directories
-            Thread.Sleep(2000);
+            //Thread.Sleep(2000);
 
             Console.Write("Building save file list...");
 
@@ -155,7 +160,7 @@ namespace saveManager
             saveNum = RenameSaves(allSaves, GetCurrentSaveNum(savesDirList));
 
             Save[] playThruListArr = allSaves.Distinct(new SaveComparer()).ToArray(); //used to populate playthrough selection list
-            Thread.Sleep(2000);
+            //Thread.Sleep(2000);
 
             //display list of available playthroughs
             Console.WriteLine(" Complete!!\n\nPlease select a playthrough/s to load (seperate multiple choices with a comma):\n");
@@ -189,10 +194,10 @@ namespace saveManager
             //     using (StreamWriter sw = File.CreateText($"{savesDir}\\save_manager_data.json")) { sw.WriteLine(selectionStr); }
             // }
 
-            // Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
+            Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
 
-            // launcher.Start();
-            // launcher.WaitForExit(30000);
+            launcher.Start();
+            launcher.WaitForExit(60000);
         }
 
         public class SaveComparer : IEqualityComparer<Save>
@@ -372,7 +377,7 @@ namespace saveManager
             Console.WriteLine("Saves moved successfully!!\n");
         }
 
-        [GeneratedRegex("Save(\\d{1,3}) - \\w{5,9} \\(\\w{4,6} Body \\+ \\w{1,10} Voice\\), \\w{16}")]
+        [GeneratedRegex("Save(\\d{1,3}) - \\w{5,6} \\(\\w{3,4}?Body,\\w{1,10}Voice\\),\\w{16}")]
         private static partial Regex MyRegex();
     }
 

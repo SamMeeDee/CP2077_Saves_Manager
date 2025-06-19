@@ -17,13 +17,34 @@ limitations under the License.
 */
 
 using System;
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 namespace saveManager
 {
-    public enum LifePath {StreetKid,Nomad,Corporate}
-    public enum BodyGender {Male,Female}
-    public enum VoiceGender {Male,Female}
+    public enum LifePath
+    {
+        [Description("Street")]
+        StreetKid,
+        Nomad,
+        [Description("Corpo")]
+        Corporate
+    }
+    public enum BodyGender
+    {
+        [Description("Male")]
+        Male,
+        [Description("Fem")]
+        Female
+    }
+    
+    public enum VoiceGender
+    {
+        [Description("Male")]
+        Male,
+        [Description("Fem")]
+        Female
+    }
 
     public class Save
     {
@@ -45,10 +66,22 @@ namespace saveManager
 
         public override string ToString()
         {
-            string output = $"{this.LifePath.ToString()} ({this.BodyGender.ToString()} Body + {this.VoiceGender.ToString()} Voice), {this.PlayThruId}";
+
+            string output = $"{GetEnumDescription(this.LifePath)} ({GetEnumDescription(this.BodyGender)}Body,{GetEnumDescription(this.VoiceGender)}Voice),{this.PlayThruId}";
             return output;
         }
+        
+        public static string GetEnumDescription(Enum value)
+        {
+            if (value == null) { return ""; }
 
-        public Save(){}
+            var type = value.GetType();
+            var field = type.GetField(value.ToString());
+            var custAttr = field?.GetCustomAttributes(typeof(DescriptionAttribute), false);
+            DescriptionAttribute attribute = custAttr?.SingleOrDefault() as DescriptionAttribute;
+            return attribute == null ? value.ToString() : attribute.Description;
+        }
+
+        public Save() { }
     }
 }
