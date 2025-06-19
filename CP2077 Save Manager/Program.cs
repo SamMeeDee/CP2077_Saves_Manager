@@ -194,7 +194,7 @@ namespace saveManager
             //     using (StreamWriter sw = File.CreateText($"{savesDir}\\save_manager_data.json")) { sw.WriteLine(selectionStr); }
             // }
 
-            Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
+            //Console.Write("Complete!!\nLaunching Cyberpunk 2077...");
 
             //launcher.Start();
             //launcher.WaitForExit(60000);
